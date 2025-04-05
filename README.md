@@ -64,7 +64,8 @@ POSTGRES_HOST={postgres_host}
 DB_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 JWT_SECRET=your_secret_key
 JWT_ALGORITHM=HS256
-JWT_EXPIRATION_SECONDS=3600
+ACCESS_TOKEN_EXPIRATION_SECONDS=3600
+REFRESH_TOKEN_EXPIRATION_SECONDS=604800
 
 MAIL_USERNAME={email_address}
 MAIL_PASSWORD={email_password}
@@ -94,78 +95,13 @@ Ensure you have a virtual environment activated, then install dependencies:
 pip install -r requirements.txt
 ```
 
-### Step 4: Configure and Apply Migrations
+### Step 4: Apply Migrations
 
-Use Alembic to manage database migrations. To create and apply the initial migration, run:
-
-```sh
-alembic init migrations
-```
-
-#### Configure `env.py`
-
-Replace the beginning of the `migrations/env.py` file with the following code:
-
-```python
-import asyncio
-from logging.config import fileConfig
-
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
-from src.database.models import Base
-from src.conf.config import config as app_config
-```
-
-Find the following line in `env.py`:
-
-```python
-target_metadata = None
-```
-
-Replace `None` with:
-
-```python
-target_metadata = Base.metadata
-```
-
-Replace the database connection string with the actual connection:
-
-```python
-config.set_main_option("sqlalchemy.url", app_config.DB_URL)
-```
-
-Modify the `run_migrations_online` function for asynchronous migrations:
-
-```python
-def run_migrations(connection: Connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
-    with context.begin_transaction():
-        context.run_migrations()
-
-async def run_async_migrations():
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(run_migrations)
-
-    await connectable.dispose()
-
-def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
-```
+Use Alembic to apply database migrations:
 
 Apply the migrations:
 
 ```sh
-alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
 
@@ -174,13 +110,7 @@ alembic upgrade head
 Start the FastAPI server:
 
 ```sh
-fastapi dev src/main.py
-```
-
-### Running using docker-compose ise command
-
-```sh
-docker-compose up --build
+fastapi dev main.py
 ```
 
 ### Use Swagger for API Exploration
@@ -202,7 +132,8 @@ POSTGRES_HOST={postgres_host}
 DB_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 JWT_SECRET=your_secret_key
 JWT_ALGORITHM=HS256
-JWT_EXPIRATION_SECONDS=3600
+ACCESS_TOKEN_EXPIRATION_SECONDS=3600
+REFRESH_TOKEN_EXPIRATION_SECONDS=604800
 
 MAIL_USERNAME={email_address}
 MAIL_PASSWORD={email_password}

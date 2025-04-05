@@ -9,12 +9,25 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
-from src.schemas import UserCreate, Token, User, RequestEmail
-from src.services.auth import create_access_token, Hash
+from src.schemas import (
+    UserCreate,
+    Token,
+    User,
+    RequestEmail,
+    TokenRefreshRequest,
+)
+from src.services.auth import (
+    create_access_token,
+    Hash,
+    create_refresh_token,
+    update_refresh_token,
+    verify_refresh_token,
+)
 from src.services.users import UserService
 from src.services.email import send_email
 from src.services.auth import get_email_from_token
 from src.database.db import get_db
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -87,7 +100,15 @@ async def login_user(
         )
 
     access_token = await create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = await create_refresh_token(
+        data={"sub": user.username}, user_id=user.id, db=db
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token.token,
+        "token_type": "bearer",
+    }
 
 
 @router.get("/confirmed_email/{token}")
@@ -142,3 +163,31 @@ async def request_email(
             f"Email sent to {user.email}, username: {user.username}, host: {request.base_url}"
         )
     return {"message": "Check your mailbox for confirmation email"}
+
+
+@router.post("/refresh-token", response_model=Token)
+async def new_token(request: TokenRefreshRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Refresh the access token using the refresh token.
+    - **refresh_token**: The refresh token used to obtain a new access token.
+    - If the refresh token is valid, a new access token will be returned.
+    - If the refresh token is invalid or expired, an error will be raised.
+    """
+    user = await verify_refresh_token(request.refresh_token, db)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    new_access_token = await create_access_token(data={"sub": user.username})
+    await update_refresh_token(
+        data={"sub": user.username},
+        old_refresh_token=request.refresh_token,
+        user_id=user.id,
+        db=db,
+    )
+    return {
+        "access_token": new_access_token,
+        "refresh_token": request.refresh_token,
+        "token_type": "bearer",
+    }

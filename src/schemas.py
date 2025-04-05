@@ -48,7 +48,18 @@ class UserCreate(BaseModel):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
+
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenDto(BaseModel):
+    token: str
+    expires_at: datetime
+    created_at: datetime
 
 
 class RequestEmail(BaseModel):

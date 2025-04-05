@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, UTC
-from typing import Optional
+from typing import Optional, Literal
 
 from fastapi import Depends, HTTPException, status
 from passlib.context import CryptContext
@@ -9,6 +9,9 @@ from jose import JWTError, jwt
 from src.conf.config import settings
 from src.database.db import get_db
 from src.services.users import UserService
+from src.database.models import RefreshToken
+from src.services.refresh_tokens import RefreshTokenService
+from src.schemas import TokenDto
 
 
 class Hash:
@@ -24,17 +27,67 @@ class Hash:
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
-async def create_access_token(data: dict, expires_delta: Optional[int] = None):
+def create_token(
+    data: dict, expires_delta: timedelta, token_type: Literal["access", "refresh"]
+) -> TokenDto:
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(UTC) + timedelta(seconds=expires_delta)
-    else:
-        expire = datetime.now(UTC) + timedelta(seconds=settings.JWT_EXPIRATION_SECONDS)
-    to_encode.update({"exp": expire})
+    now = datetime.now(UTC)
+    expire = now + expires_delta
+    to_encode.update({"exp": expire, "iat": now, "token_type": token_type})
     encoded_jwt = jwt.encode(
         to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
     )
-    return encoded_jwt
+    return TokenDto(token=encoded_jwt, expires_at=expire, created_at=now)
+
+
+async def create_access_token(data: dict, expires_delta: Optional[int] = None) -> str:
+    if expires_delta:
+        access_token = create_token(data, expires_delta, "access")
+    else:
+        access_token = create_token(
+            data, timedelta(seconds=settings.ACCESS_TOKEN_EXPIRATION_SECONDS), "access"
+        )
+    return access_token.token
+
+
+async def create_refresh_token(
+    data: dict, user_id: int, db: AsyncSession, expires_delta: Optional[float] = None
+) -> RefreshToken:
+    if expires_delta:
+        refresh_token = create_token(data, expires_delta, "refresh")
+    else:
+        refresh_token = create_token(
+            data,
+            timedelta(minutes=settings.REFRESH_TOKEN_EXPIRATION_SECONDS),
+            "refresh",
+        )
+    refresh_token_service = RefreshTokenService(db)
+    refresh_token_obj = await refresh_token_service.create_refresh_token(
+        refresh_token, user_id
+    )
+    return refresh_token_obj
+
+
+async def update_refresh_token(
+    data: dict,
+    old_refresh_token: str,
+    user_id: int,
+    db: AsyncSession,
+    expires_delta: Optional[float] = None,
+) -> RefreshToken:
+    if expires_delta:
+        refresh_token = create_token(data, expires_delta, "refresh")
+    else:
+        refresh_token = create_token(
+            data,
+            timedelta(minutes=settings.REFRESH_TOKEN_EXPIRATION_SECONDS),
+            "refresh",
+        )
+    refresh_token_service = RefreshTokenService(db)
+    refresh_token_obj = await refresh_token_service.update_refresh_token(
+        old_refresh_token, refresh_token, user_id
+    )
+    return refresh_token_obj
 
 
 async def get_current_user(
@@ -50,8 +103,9 @@ async def get_current_user(
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )
-        username = payload["sub"]
-        if username is None:
+        username: str = payload.get("sub")
+        token_type: str = payload.get("token_type")
+        if username is None or token_type != "access":
             raise credentials_exception
     except JWTError as e:
         raise credentials_exception
@@ -82,3 +136,21 @@ async def get_email_from_token(token: str):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Неправильний токен для перевірки електронної пошти",
         )
+
+
+async def verify_refresh_token(refresh_token: str, db: AsyncSession):
+    try:
+        payload = jwt.decode(
+            refresh_token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
+        )
+        username: str = payload.get("sub")
+        token_type: str = payload.get("token_type")
+        if username is None or token_type != "refresh":
+            return None
+        user_service = UserService(db)
+        user = await user_service.get_user_by_username_and_by_refresh_token(
+            username, refresh_token
+        )
+        return user
+    except JWTError:
+        return None
