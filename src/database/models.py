@@ -1,13 +1,26 @@
 from datetime import datetime, date
-from typing import Optional
-from sqlalchemy import TIMESTAMP, Column, Integer, String, Boolean, func, Table
+from sqlalchemy import (
+    TIMESTAMP,
+    Column,
+    Integer,
+    String,
+    Boolean,
+    func,
+    Enum as SqlEnum,
+)
 from sqlalchemy.orm import relationship, mapped_column, Mapped, DeclarativeBase
 from sqlalchemy.sql.schema import ForeignKey, UniqueConstraint
 from sqlalchemy.sql.sqltypes import DateTime, Date
+from enum import Enum
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
 
 
 class Contact(Base):
@@ -34,15 +47,21 @@ class Contact(Base):
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String, unique=True)
-    email = Column(String, unique=True)
-    hashed_password = Column(String)
-    created_at = Column(DateTime, default=func.now())
-    avatar = Column(String(255), nullable=True)
-    confirmed = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String, unique=True)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    hashed_password: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[UserRole] = mapped_column(
+        SqlEnum(UserRole),
+        default=UserRole.USER,
+        server_default=UserRole.USER,
+        nullable=False,
+    )
 
-    refresh_tokens = relationship(
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -50,12 +69,16 @@ class User(Base):
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    token = Column(String, nullable=False, unique=True)
-    created_at = Column(TIMESTAMP(timezone=True), default=func.now())
-    expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
-    user = relationship("User", back_populates="refresh_tokens")
+    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")

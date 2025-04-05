@@ -2,6 +2,8 @@ from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 
+from src.database.models import UserRole
+
 
 class ContactModel(BaseModel):
     first_name: str = Field(max_length=50)
@@ -22,6 +24,7 @@ class User(BaseModel):
     id: int
     username: str
     email: str
+    role: UserRole
     avatar: str
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +33,7 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(min_length=8, max_length=50)
+    role: UserRole
 
     @field_validator("password")
     def validate_password(cls, value: str) -> str:
