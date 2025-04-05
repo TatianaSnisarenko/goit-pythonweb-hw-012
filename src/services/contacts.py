@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 
 from src.repository.contacts import ContactRepository
 from src.schemas import ContactModel, User
+from src.utils.utils import to_dict
 
 
 def _handle_integrity_error(e: IntegrityError):
@@ -15,6 +16,7 @@ def _handle_integrity_error(e: IntegrityError):
             detail="Contact with such email already exists",
         )
     else:
+        print(e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Database integrity error",

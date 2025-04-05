@@ -81,6 +81,11 @@ VALIDATE_CERTS=True
 CLOUDINARY_NAME={cloud_name}
 CLOUDINARY_API_KEY={api_key}
 CLOUDINARY_API_SECRET={api_secret}
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
 ```
 
 For POSTGRES_HOST use localhost for local run and postgres for container run
@@ -103,6 +108,12 @@ Apply the migrations:
 
 ```sh
 alembic upgrade head
+```
+
+### Step 5: Start Redis
+
+```sh
+docker run --name {container_name} -d -p {redis_port}:6379 redis
 ```
 
 ### Step 5: Run the Application
@@ -149,9 +160,16 @@ VALIDATE_CERTS=True
 CLOUDINARY_NAME={cloud_name}
 CLOUDINARY_API_KEY={api_key}
 CLOUDINARY_API_SECRET={api_secret}
+
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
 ```
 
 For POSTGRES_HOST use localhost for local run and postgres for container run
+For REDIS_HOST use localhost for local run and redis for container run
 
 Ensure that the email account you use has SMTP enabled.
 

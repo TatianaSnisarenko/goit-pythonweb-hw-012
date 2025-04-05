@@ -1,17 +1,22 @@
 from datetime import datetime, timedelta, UTC
+import json
 from typing import Optional, Literal
 
+from redis.asyncio import Redis
 from fastapi import Depends, HTTPException, status
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
+from src.cache.cache import get_cache
 from src.conf.config import settings
 from src.database.db import get_db
 from src.services.users import UserService
 from src.database.models import RefreshToken
 from src.services.refresh_tokens import RefreshTokenService
 from src.schemas import TokenDto
+from src.database.models import User
+from src.utils.utils import parse_datetime_fields, to_dict
 
 
 class Hash:
@@ -91,13 +96,22 @@ async def update_refresh_token(
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
-):
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+    cache: Redis = Depends(get_cache),
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    cached_user = await cache.get(f"user:{token}")
+    if cached_user:
+        user_data = parse_datetime_fields(json.loads(cached_user), ["created_at"])
+        user = User(**user_data)
+        user = await db.merge(user)
+        return user
 
     try:
         payload = jwt.decode(
@@ -113,6 +127,8 @@ async def get_current_user(
     user = await user_service.get_user_by_username(username)
     if user is None:
         raise credentials_exception
+
+    await cache.set(f"user:{token}", json.dumps(to_dict(user)), ex=3600)
     return user
 
 
