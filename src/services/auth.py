@@ -12,7 +12,7 @@ from src.cache.cache import get_cache
 from src.conf.config import settings
 from src.database.db import get_db
 from src.services.users import UserService
-from src.database.models import RefreshToken
+from src.database.models import RefreshToken, UserRole
 from src.services.refresh_tokens import RefreshTokenService
 from src.schemas import TokenDto
 from src.database.models import User
@@ -93,6 +93,20 @@ async def update_refresh_token(
         old_refresh_token, refresh_token, user_id
     )
     return refresh_token_obj
+
+
+async def get_current_admin_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+    cache: Redis = Depends(get_cache),
+) -> User:
+    user = await get_current_user(token, db, cache)
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to perform this action.",
+        )
+    return user
 
 
 async def get_current_user(
