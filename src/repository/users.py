@@ -53,6 +53,11 @@ class UserRepository:
         user.confirmed = True
         await self.db.commit()
 
+    async def reset_password(self, email: str, hashed_password: str) -> None:
+        user = await self.get_user_by_email(email)
+        user.hashed_password = hashed_password
+        await self.db.commit()
+
     async def update_avatar_url(self, email: str, url: str) -> User:
         user = await self.get_user_by_email(email)
         user.avatar = url

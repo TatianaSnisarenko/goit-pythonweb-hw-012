@@ -40,3 +40,6 @@ class UserService:
         return await self.repository.get_user_by_username_and_by_refresh_token(
             username, token
         )
+
+    async def reset_password(self, email: str, hashed_password: str):
+        return await self.repository.reset_password(email, hashed_password)

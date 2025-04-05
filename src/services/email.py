@@ -22,11 +22,33 @@ conf = ConnectionConfig(
 )
 
 
-async def send_email(email: EmailStr, username: str, host: str):
+async def send_confirm_email(email: EmailStr, username: str, host: str):
+    await send_email(
+        email=email,
+        subject="Confirm your email",
+        template_name="verify_email.html",
+        username=username,
+        host=host,
+    )
+
+
+async def send_reset_password_email(email: EmailStr, username: str, host: str):
+    await send_email(
+        email=email,
+        subject=f"Reset password request for user {username}",
+        template_name="reset_password.html",
+        username=username,
+        host=host,
+    )
+
+
+async def send_email(
+    email: EmailStr, subject: str, template_name: str, username: str, host: str
+):
     try:
         token_verification = create_email_token({"sub": email})
         message = MessageSchema(
-            subject="Confirm your email",
+            subject=subject,
             recipients=[email],
             template_body={
                 "host": host,
@@ -37,6 +59,6 @@ async def send_email(email: EmailStr, username: str, host: str):
         )
 
         fm = FastMail(conf)
-        await fm.send_message(message, template_name="verify_email.html")
+        await fm.send_message(message, template_name=template_name)
     except ConnectionErrors as err:
         print(err)
