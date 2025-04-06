@@ -117,7 +117,7 @@ async def create_access_token(data: dict, expires_delta: Optional[int] = None) -
         str: The created access token.
     """
     if expires_delta:
-        access_token = create_token(data, expires_delta, "access")
+        access_token = create_token(data, timedelta(seconds=expires_delta), "access")
     else:
         access_token = create_token(
             data, timedelta(seconds=settings.ACCESS_TOKEN_EXPIRATION_SECONDS), "access"
