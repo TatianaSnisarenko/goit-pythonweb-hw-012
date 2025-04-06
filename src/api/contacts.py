@@ -7,6 +7,33 @@ from src.schemas import ContactModel, ContactResponse, User
 from src.services.auth import get_current_user
 from src.services.contacts import ContactService
 
+"""
+Contacts API module.
+
+This module provides endpoints for managing user contacts. It includes functionality 
+for creating, retrieving, updating, deleting, and searching contacts, as well as 
+retrieving contacts with upcoming birthdays.
+
+Routes:
+    /contacts/:
+        - GET: Retrieve a list of contacts with pagination.
+        - POST: Create a new contact.
+    /contacts/{contact_id}:
+        - GET: Retrieve a single contact by its ID.
+        - PUT: Update an existing contact by its ID.
+        - DELETE: Delete a contact by its ID.
+    /contacts/search/:
+        - GET: Search contacts by first name, last name, or email with pagination.
+    /contacts/birthdays/:
+        - GET: Retrieve a list of contacts with upcoming birthdays.
+
+Dependencies:
+    - Database session (`AsyncSession`) is used for database operations.
+    - Current user (`User`) is retrieved using authentication dependencies.
+
+Exception Handling:
+    - Raises `HTTPException` for invalid data, unauthorized access, or resource not found.
+"""
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -19,11 +46,18 @@ async def read_contacts(
     ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> List[ContactResponse]:
     """
-    Get a list of contacts with pagination.
-    - `skip`: Number of records to skip (default: 0, must be >= 0).
-    - `limit`: Maximum number of records to return (default: 10, range: 1-100).
+    Retrieve a list of contacts with pagination.
+
+    Args:
+        skip (int): Number of records to skip (default: 0, must be >= 0).
+        limit (int): Maximum number of records to return (default: 10, range: 1-100).
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        List[ContactResponse]: A list of contacts belonging to the user.
     """
     contact_service = ContactService(db)
     contacts = await contact_service.get_contacts(skip, limit, user)
@@ -35,10 +69,20 @@ async def read_contact(
     contact_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> ContactResponse:
     """
-    Get a single contact by its ID.
-    - `contact_id`: The ID of the contact to retrieve.
+    Retrieve a single contact by its ID.
+
+    Args:
+        contact_id (int): The ID of the contact to retrieve.
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        ContactResponse: The contact data.
+
+    Raises:
+        HTTPException: If the contact is not found.
     """
     contact_service = ContactService(db)
     contact = await contact_service.get_contact(contact_id, user)
@@ -54,10 +98,17 @@ async def create_contact(
     body: ContactModel,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> ContactResponse:
     """
     Create a new contact.
-    - `body`: The contact data to create.
+
+    Args:
+        body (ContactModel): The contact data to create.
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        ContactResponse: The newly created contact.
     """
     contact_service = ContactService(db)
     return await contact_service.create_contact(body, user)
@@ -69,11 +120,21 @@ async def update_contact(
     contact_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> ContactResponse:
     """
     Update an existing contact by its ID.
-    - `contact_id`: The ID of the contact to update.
-    - `body`: The updated contact data.
+
+    Args:
+        body (ContactModel): The updated contact data.
+        contact_id (int): The ID of the contact to update.
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        ContactResponse: The updated contact.
+
+    Raises:
+        HTTPException: If the contact is not found.
     """
     contact_service = ContactService(db)
     contact = await contact_service.update_contact(contact_id, body, user)
@@ -89,10 +150,20 @@ async def remove_contact(
     contact_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> ContactResponse:
     """
     Delete a contact by its ID.
-    - `contact_id`: The ID of the contact to delete.
+
+    Args:
+        contact_id (int): The ID of the contact to delete.
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        ContactResponse: The deleted contact.
+
+    Raises:
+        HTTPException: If the contact is not found.
     """
     contact_service = ContactService(db)
     contact = await contact_service.remove_contact(contact_id, user)
@@ -120,14 +191,21 @@ async def search_contacts(
     ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> List[ContactResponse]:
     """
     Search contacts by first name, last name, or email with pagination.
-    - `skip`: Number of records to skip (default: 0, must be >= 0).
-    - `limit`: Maximum number of records to return (default: 10, range: 1-100).
-    - `first_name`: Filter by first name (optional).
-    - `last_name`: Filter by last name (optional).
-    - `email`: Filter by email address (optional).
+
+    Args:
+        skip (int): Number of records to skip (default: 0, must be >= 0).
+        limit (int): Maximum number of records to return (default: 10, range: 1-100).
+        first_name (Optional[str]): Filter by first name (optional).
+        last_name (Optional[str]): Filter by last name (optional).
+        email (Optional[str]): Filter by email address (optional).
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        List[ContactResponse]: A list of contacts matching the search criteria.
     """
     contact_service = ContactService(db)
     contacts = await contact_service.search_contacts(
@@ -150,12 +228,19 @@ async def get_upcoming_birthdays(
     ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> List[ContactResponse]:
     """
-    Get a list of contacts with birthdays in the next `days` days, with pagination.
-    - `days`: Number of days to look ahead for birthdays (default: 7, range: 1-364).
-    - `skip`: Number of records to skip (default: 0, must be >= 0).
-    - `limit`: Maximum number of records to return (default: 10, range: 1-100).
+    Retrieve a list of contacts with upcoming birthdays within the next `days` days.
+
+    Args:
+        days (int): Number of days to look ahead for birthdays (default: 7, range: 1-364).
+        skip (int): Number of records to skip (default: 0, must be >= 0).
+        limit (int): Maximum number of records to return (default: 10, range: 1-100).
+        db (AsyncSession): The database session.
+        user (User): The currently authenticated user.
+
+    Returns:
+        List[ContactResponse]: A list of contacts with upcoming birthdays.
     """
     contact_service = ContactService(db)
     contacts = await contact_service.get_upcoming_birthdays(days, skip, limit, user)

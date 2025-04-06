@@ -18,14 +18,63 @@ from src.schemas import TokenDto
 from src.database.models import User
 from src.utils.utils import parse_datetime_fields, to_dict
 
+"""
+Authentication and authorization services module.
+
+This module provides functionality for managing authentication and authorization 
+in the application. It includes password hashing, token creation, user validation, 
+and role-based access control.
+
+Classes:
+    Hash: A utility class for password hashing and verification.
+
+Functions:
+    create_token: Creates a JWT token with a specified expiration time and type.
+    create_access_token: Creates an access token for a user.
+    create_refresh_token: Creates a refresh token for a user and stores it in the database.
+    update_refresh_token: Updates an existing refresh token with a new one.
+    get_current_user: Retrieves the currently authenticated user from the token.
+    get_current_admin_user: Retrieves the currently authenticated admin user.
+    create_email_token: Creates a token for email verification.
+    get_email_from_token: Extracts the email from a token.
+    verify_refresh_token: Verifies the validity of a refresh token.
+"""
+
 
 class Hash:
+    """
+    A utility class for password hashing and verification.
+
+    Methods:
+        verify_password: Verifies a plain password against a hashed password.
+        get_password_hash: Hashes a plain password using bcrypt.
+    """
+
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def verify_password(self, plain_password, hashed_password):
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """
+        Verifies a plain password against a hashed password.
+
+        Args:
+            plain_password (str): The plain text password to verify.
+            hashed_password (str): The hashed password to compare against.
+
+        Returns:
+            bool: True if the password matches, False otherwise.
+        """
         return self.pwd_context.verify(plain_password, hashed_password)
 
-    def get_password_hash(self, password: str):
+    def get_password_hash(self, password: str) -> str:
+        """
+        Hashes a plain password using bcrypt.
+
+        Args:
+            password (str): The plain text password to hash.
+
+        Returns:
+            str: The hashed password.
+        """
         return self.pwd_context.hash(password)
 
 
@@ -35,6 +84,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 def create_token(
     data: dict, expires_delta: timedelta, token_type: Literal["access", "refresh"]
 ) -> TokenDto:
+    """
+    Creates a JWT token with a specified expiration time and type.
+
+    Args:
+        data (dict): The payload data to encode in the token.
+        expires_delta (timedelta): The duration until the token expires.
+        token_type (Literal["access", "refresh"]): The type of the token.
+
+    Returns:
+        TokenDto: The created token with metadata.
+    """
     to_encode = data.copy()
     now = datetime.now(UTC)
     expire = now + expires_delta
@@ -46,6 +106,16 @@ def create_token(
 
 
 async def create_access_token(data: dict, expires_delta: Optional[int] = None) -> str:
+    """
+    Creates an access token for a user.
+
+    Args:
+        data (dict): The payload data to encode in the token.
+        expires_delta (Optional[int]): The duration until the token expires in seconds.
+
+    Returns:
+        str: The created access token.
+    """
     if expires_delta:
         access_token = create_token(data, expires_delta, "access")
     else:
@@ -58,6 +128,18 @@ async def create_access_token(data: dict, expires_delta: Optional[int] = None) -
 async def create_refresh_token(
     data: dict, user_id: int, db: AsyncSession, expires_delta: Optional[float] = None
 ) -> RefreshToken:
+    """
+    Creates a refresh token for a user and stores it in the database.
+
+    Args:
+        data (dict): The payload data to encode in the token.
+        user_id (int): The ID of the user for whom the token is created.
+        db (AsyncSession): The database session.
+        expires_delta (Optional[float]): The duration until the token expires in minutes.
+
+    Returns:
+        RefreshToken: The created refresh token object.
+    """
     if expires_delta:
         refresh_token = create_token(data, expires_delta, "refresh")
     else:
@@ -80,6 +162,19 @@ async def update_refresh_token(
     db: AsyncSession,
     expires_delta: Optional[float] = None,
 ) -> RefreshToken:
+    """
+    Updates an existing refresh token with a new one.
+
+    Args:
+        data (dict): The payload data to encode in the token.
+        old_refresh_token (str): The old refresh token to replace.
+        user_id (int): The ID of the user associated with the token.
+        db (AsyncSession): The database session.
+        expires_delta (Optional[float]): The duration until the token expires in minutes.
+
+    Returns:
+        RefreshToken: The updated refresh token object.
+    """
     if expires_delta:
         refresh_token = create_token(data, expires_delta, "refresh")
     else:
@@ -100,6 +195,20 @@ async def get_current_admin_user(
     db: AsyncSession = Depends(get_db),
     cache: Redis = Depends(get_cache),
 ) -> User:
+    """
+    Retrieves the currently authenticated admin user.
+
+    Args:
+        token (str): The JWT token from the request.
+        db (AsyncSession): The database session.
+        cache (Redis): The Redis cache instance.
+
+    Returns:
+        User: The authenticated admin user.
+
+    Raises:
+        HTTPException: If the user is not an admin or the token is invalid.
+    """
     user = await get_current_user(token, db, cache)
     if user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -114,6 +223,20 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
     cache: Redis = Depends(get_cache),
 ) -> User:
+    """
+    Retrieves the currently authenticated user from the token.
+
+    Args:
+        token (str): The JWT token from the request.
+        db (AsyncSession): The database session.
+        cache (Redis): The Redis cache instance.
+
+    Returns:
+        User: The authenticated user.
+
+    Raises:
+        HTTPException: If the token is invalid or the user is not found.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -146,7 +269,16 @@ async def get_current_user(
     return user
 
 
-def create_email_token(data: dict):
+def create_email_token(data: dict) -> str:
+    """
+    Creates a token for email verification.
+
+    Args:
+        data (dict): The payload data to encode in the token.
+
+    Returns:
+        str: The created email verification token.
+    """
     to_encode = data.copy()
     expire = datetime.now(UTC) + timedelta(days=7)
     to_encode.update({"iat": datetime.now(UTC), "exp": expire})
@@ -154,7 +286,19 @@ def create_email_token(data: dict):
     return token
 
 
-async def get_email_from_token(token: str):
+async def get_email_from_token(token: str) -> str:
+    """
+    Extracts the email from a token.
+
+    Args:
+        token (str): The JWT token containing the email.
+
+    Returns:
+        str: The extracted email.
+
+    Raises:
+        HTTPException: If the token is invalid or expired.
+    """
     try:
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
@@ -168,7 +312,17 @@ async def get_email_from_token(token: str):
         )
 
 
-async def verify_refresh_token(refresh_token: str, db: AsyncSession):
+async def verify_refresh_token(refresh_token: str, db: AsyncSession) -> Optional[User]:
+    """
+    Verifies the validity of a refresh token.
+
+    Args:
+        refresh_token (str): The refresh token to verify.
+        db (AsyncSession): The database session.
+
+    Returns:
+        Optional[User]: The user associated with the token if valid, otherwise None.
+    """
     try:
         payload = jwt.decode(
             refresh_token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]

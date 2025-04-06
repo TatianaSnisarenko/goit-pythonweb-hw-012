@@ -29,6 +29,31 @@ from src.services.email import send_confirm_email, send_reset_password_email
 from src.services.auth import get_email_from_token
 from src.database.db import get_db
 
+"""
+Authentication and authorization API module.
+
+This module provides endpoints for managing user authentication and authorization. 
+It includes functionality for user registration, login, email confirmation, 
+password reset, and token management.
+
+Routes:
+    /auth/register: Register a new user.
+    /auth/login: Authenticate a user and return access and refresh tokens.
+    /auth/confirmed_email/{token}: Confirm a user's email address.
+    /auth/request-email: Request a new email confirmation.
+    /auth/refresh-token: Refresh the access token using a refresh token.
+    /auth/reset-password-request: Request a password reset email.
+    /auth/reset-password-form/{token}: Display the reset password form.
+    /auth/reset-password: Reset the user's password.
+
+Dependencies:
+    - Database session (`AsyncSession`) is used for database operations.
+    - Background tasks (`BackgroundTasks`) are used for sending emails asynchronously.
+
+Exception Handling:
+    - Raises `HTTPException` for invalid data, unauthorized access, or other errors.
+
+"""
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,19 +64,21 @@ async def register_user(
     background_tasks: BackgroundTasks,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Register a new user.
-    - **username**: The username of the new user.
-    - **email**: The email address of the new user.
-    - **password**: The password for the new user (must meet validation criteria - contain at least:
-      - one lowercase letter
-      - one uppercase letter
-      - one digit
-      - one special character (@$!%*?&)
-      - 8 symbols
-    ).
-    - verify email: Confirm email address following link in your mailbox.
+
+    Args:
+        user_data (UserCreate): The data for the new user.
+        background_tasks (BackgroundTasks): Background tasks for sending confirmation email.
+        request (Request): The HTTP request object.
+        db (AsyncSession): The database session.
+
+    Returns:
+        User: The newly created user.
+
+    Raises:
+        HTTPException: If the email or username already exists.
     """
     user_service = UserService(db)
 
@@ -79,12 +106,19 @@ async def register_user(
 @router.post("/login", response_model=Token)
 async def login_user(
     form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
-):
+) -> Token:
     """
     Authenticate a user.
-    - **username**: The username of the user.
-    - **password**: The password of the user.
-    - Email must be confirmed.
+
+    Args:
+        form_data (OAuth2PasswordRequestForm): The login form data containing username and password.
+        db (AsyncSession): The database session.
+
+    Returns:
+        Token: The access and refresh tokens for the authenticated user.
+
+    Raises:
+        HTTPException: If the username or password is invalid, or if the email is not confirmed.
     """
     user_service = UserService(db)
     user = await user_service.get_user_by_username(form_data.username)
@@ -113,13 +147,19 @@ async def login_user(
 
 
 @router.get("/confirmed_email/{token}")
-async def confirmed_email(token: str, db: AsyncSession = Depends(get_db)):
+async def confirmed_email(token: str, db: AsyncSession = Depends(get_db)) -> dict:
     """
     Confirm a user's email address.
 
-    - **token**: The confirmation token sent to the user's email.
-    - If the token is valid and the email is not already confirmed, the email will be marked as confirmed.
-    - If the email is already confirmed, a message will be returned indicating this.
+    Args:
+        token (str): The confirmation token sent to the user's email.
+        db (AsyncSession): The database session.
+
+    Returns:
+        dict: A message indicating the result of the confirmation process.
+
+    Raises:
+        HTTPException: If the token is invalid or the user does not exist.
     """
     email = await get_email_from_token(token)
     user_service = UserService(db)
@@ -140,13 +180,18 @@ async def request_email(
     background_tasks: BackgroundTasks,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict:
     """
     Request a new confirmation email.
 
-    - **email**: The email address of the user.
-    - If the email is already confirmed, a message will be returned indicating this.
-    - If the email is not confirmed, a new confirmation email will be sent to the user's mailbox.
+    Args:
+        body (RequestEmail): The email address of the user.
+        background_tasks (BackgroundTasks): Background tasks for sending the email.
+        request (Request): The HTTP request object.
+        db (AsyncSession): The database session.
+
+    Returns:
+        dict: A message indicating the result of the request.
     """
     user_service = UserService(db)
     user = await user_service.get_user_by_email(body.email)
@@ -167,12 +212,21 @@ async def request_email(
 
 
 @router.post("/refresh-token", response_model=Token)
-async def new_token(request: TokenRefreshRequest, db: AsyncSession = Depends(get_db)):
+async def new_token(
+    request: TokenRefreshRequest, db: AsyncSession = Depends(get_db)
+) -> Token:
     """
     Refresh the access token using the refresh token.
-    - **refresh_token**: The refresh token used to obtain a new access token.
-    - If the refresh token is valid, a new access token will be returned.
-    - If the refresh token is invalid or expired, an error will be raised.
+
+    Args:
+        request (TokenRefreshRequest): The refresh token request data.
+        db (AsyncSession): The database session.
+
+    Returns:
+        Token: The new access token and the same refresh token.
+
+    Raises:
+        HTTPException: If the refresh token is invalid or expired.
     """
     user = await verify_refresh_token(request.refresh_token, db)
     if user is None:
@@ -200,11 +254,21 @@ async def reset_password_request(
     background_tasks: BackgroundTasks,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict:
     """
-    Reset the user's password using the provided email.
-    - **email**: The email address of the user.
-    - Check the mailbox for reset password link.
+    Request a password reset email for the user.
+
+    Args:
+        body (RequestEmail): The email address of the user requesting the password reset.
+        background_tasks (BackgroundTasks): Background tasks for sending the reset email.
+        request (Request): The HTTP request object.
+        db (AsyncSession): The database session.
+
+    Returns:
+        dict: A message indicating that the reset password email has been sent.
+
+    Raises:
+        HTTPException: If the user does not exist or their email is not confirmed.
     """
     user_service = UserService(db)
     user = await user_service.get_user_by_email(body.email)
@@ -226,10 +290,20 @@ async def reset_password_request(
 @router.get("/reset-password-form/{token}", response_class=HTMLResponse)
 async def reset_password_form(
     token: str, request: Request, db: AsyncSession = Depends(get_db)
-):
+) -> HTMLResponse:
     """
-    Show the reset password form.
-    - **token**: The token sent to the user's email for password reset.
+    Display the reset password form.
+
+    Args:
+        token (str): The token sent to the user's email for password reset.
+        request (Request): The HTTP request object.
+        db (AsyncSession): The database session.
+
+    Returns:
+        HTMLResponse: The reset password form rendered as an HTML response.
+
+    Raises:
+        HTTPException: If the token is invalid or the user does not exist.
     """
     email = await get_email_from_token(token)
     user_service = UserService(db)
@@ -249,11 +323,19 @@ async def reset_password_form(
 async def reset_password(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict:
     """
     Reset the user's password using the provided token and new password.
-    - **token**: The token sent to the user's email for password reset.
-    - **new_password**: The new password for the user.
+
+    Args:
+        request (Request): The HTTP request object containing the form data.
+        db (AsyncSession): The database session.
+
+    Returns:
+        dict: A message indicating that the password has been reset successfully.
+
+    Raises:
+        HTTPException: If the token or new password is missing, or if the user does not exist.
     """
     form_data = await request.form()
     token = form_data.get("token")

@@ -13,17 +13,62 @@ from sqlalchemy.sql.schema import ForeignKey, UniqueConstraint
 from sqlalchemy.sql.sqltypes import DateTime, Date
 from enum import Enum
 
+"""
+Database models module.
+
+This module defines the SQLAlchemy ORM models for the application, including 
+users, contacts, and refresh tokens. It uses SQLAlchemy's `DeclarativeBase` 
+for model definitions and includes relationships between models.
+
+Classes:
+    Base: The declarative base class for all models.
+    UserRole: An enumeration for user roles (e.g., USER, ADMIN).
+    Contact: Represents a contact entity associated with a user.
+    User: Represents a user entity with authentication and role information.
+    RefreshToken: Represents a refresh token for user authentication.
+"""
+
 
 class Base(DeclarativeBase):
+    """
+    The declarative base class for all database models.
+
+    This class is used as the base for all SQLAlchemy ORM models in the application.
+    """
+
     pass
 
 
 class UserRole(str, Enum):
+    """
+    Enumeration for user roles.
+
+    Attributes:
+        USER (str): Represents a regular user role.
+        ADMIN (str): Represents an administrator role.
+    """
+
     USER = "user"
     ADMIN = "admin"
 
 
 class Contact(Base):
+    """
+    Represents a contact entity associated with a user.
+
+    Attributes:
+        id (int): The primary key of the contact.
+        first_name (str): The first name of the contact.
+        last_name (str): The last name of the contact.
+        email (str): The email address of the contact.
+        phone (str): The phone number of the contact.
+        birthday (date): The birthday of the contact.
+        created_at (datetime): The timestamp when the contact was created.
+        updated_at (datetime): The timestamp when the contact was last updated.
+        user_id (int): The ID of the user who owns the contact.
+        user (User): The user associated with the contact.
+    """
+
     __tablename__ = "contacts"
     __table_args__ = (UniqueConstraint("email", "user_id", name="unique_email_user"),)
 
@@ -46,6 +91,21 @@ class Contact(Base):
 
 
 class User(Base):
+    """
+    Represents a user entity with authentication and role information.
+
+    Attributes:
+        id (int): The primary key of the user.
+        username (str): The username of the user.
+        email (str): The email address of the user.
+        hashed_password (str): The hashed password of the user.
+        created_at (datetime): The timestamp when the user was created.
+        avatar (str | None): The URL of the user's avatar (optional).
+        confirmed (bool): Indicates whether the user's email is confirmed.
+        role (UserRole): The role of the user (e.g., USER, ADMIN).
+        refresh_tokens (list[RefreshToken]): The list of refresh tokens associated with the user.
+    """
+
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String, unique=True)
@@ -67,6 +127,18 @@ class User(Base):
 
 
 class RefreshToken(Base):
+    """
+    Represents a refresh token for user authentication.
+
+    Attributes:
+        id (int): The primary key of the refresh token.
+        token (str): The refresh token string.
+        created_at (datetime): The timestamp when the token was created.
+        expires_at (datetime): The timestamp when the token expires.
+        user_id (int): The ID of the user associated with the token.
+        user (User): The user associated with the refresh token.
+    """
+
     __tablename__ = "refresh_tokens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
