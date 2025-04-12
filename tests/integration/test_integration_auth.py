@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from src.services.auth import create_access_token
-from tests.test_utils import create_user
+from tests.integration.test_utils import create_user
 
 from fastapi import status
 
