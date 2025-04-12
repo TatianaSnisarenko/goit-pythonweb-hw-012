@@ -26,8 +26,10 @@ services:
       - "8080:8000"
     depends_on:
       - postgres
+      - redis
     env_file:
       - .env
 
 volumes:
   pgdata:
+  redisdata:
