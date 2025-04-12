@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from libgravatar import Gravatar
 
 from src.repository.users import UserRepository
-from src.schemas import User, UserCreate
+from src.schemas import User, UserCreate, UserWithRoleResponse
 
 """
 Service module for managing user-related operations.
@@ -145,3 +145,18 @@ class UserService:
             None
         """
         return await self.repository.reset_password(email, hashed_password)
+
+    async def update_user_role(
+        self, user_id: int, new_role: str
+    ) -> UserWithRoleResponse | None:
+        """
+        Updates the role of a user.
+
+        Args:
+            user_id (int): The ID of the user whose role is to be updated.
+            new_role (str): The new role for the user.
+
+        Returns:
+            UserWithRoleResponse: The updated user with the new role.
+        """
+        return await self.repository.update_user_role(user_id, new_role)

@@ -48,7 +48,6 @@ async def test_create_user(user_service, mock_repository):
         username="newuser",
         email="newuser@example.com",
         password="Hashedpassword1!",
-        role="user",
     )
     created_user = User(
         id=2,

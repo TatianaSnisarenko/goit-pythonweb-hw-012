@@ -109,12 +109,12 @@ async def test_create_user(user_repository, mock_session):
         username="newuser",
         email="newuser@example.com",
         password="Hashedpassword1!",
-        role="user",
     )
 
     # Setup mock
     def add_side_effect(obj):
         obj.id = 2  # Simulate database assigning an ID
+        obj.role = "user"  # Simulate default role
         obj.confirmed = False  # Simulate database default behavior
         return None
 
@@ -124,7 +124,6 @@ async def test_create_user(user_repository, mock_session):
 
     # Call the actual method
     result = await user_repository.create_user(user_data)
-    print(to_dict(result))
 
     # Assertions
     assert isinstance(result, User)

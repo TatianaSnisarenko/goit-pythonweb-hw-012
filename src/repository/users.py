@@ -161,3 +161,20 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def update_user_role(self, user_id: int, new_role: str) -> User:
+        """
+        Update the role of a user.
+
+        Args:
+            user_id (int): The ID of the user whose role is to be updated.
+            new_role (str): The new role to assign to the user.
+
+        Returns:
+            User: The updated user object.
+        """
+        user = await self.get_user_by_id(user_id)
+        user.role = new_role
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

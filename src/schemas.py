@@ -79,6 +79,33 @@ class User(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserWithRoleResponse(User):
+    """
+    Schema for returning user data with role information.
+
+    Attributes:
+        id (int): The unique identifier of the user.
+        username (str): The username of the user.
+        email (str): The email address of the user.
+        role (UserRole): The role of the user (e.g., USER, ADMIN).
+        avatar (str): The URL of the user's avatar.
+    """
+
+    role: UserRole
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateUserRoleRequest(BaseModel):
+    """
+    Schema for updating user role.
+
+    Attributes:
+        role (UserRole): The new role to assign to the user.
+    """
+
+    role: UserRole
+
+
 class UserCreate(BaseModel):
     """
     Schema for creating a new user with validation.
@@ -93,7 +120,6 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(min_length=8, max_length=50)
-    role: UserRole
 
     @field_validator("password")
     def validate_password(cls, value: str) -> str:
