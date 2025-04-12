@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from src.services.auth import create_access_token
-from tests.integration.test_utils import create_contact
+from tests.api.test_utils import create_contact
 
 base_contact_data = {
     "first_name": "John",

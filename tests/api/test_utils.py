@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import select
-from tests.integration.conftest import TestingSessionLocal
+from tests.api.conftest import TestingSessionLocal
 import uuid
 from src.services.auth import Hash
 from src.database.models import Contact, User
