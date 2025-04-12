@@ -1,7 +1,4 @@
 import pytest
-from sqlalchemy import select
-from src.database.models import Contact
-from tests.conftest import TestingSessionLocal
 
 base_contact_data = {
     "first_name": "John",
@@ -13,12 +10,12 @@ base_contact_data = {
 
 
 @pytest.mark.asyncio
-async def test_create_contact(client, get_token):
+async def test_create_contact(client, get_token_confirmed):
     """
     Test creating a new contact.
     """
     contact_data = {**base_contact_data, "email": "create_contact@example.com"}
-    headers = {"Authorization": f"Bearer {get_token}"}
+    headers = {"Authorization": f"Bearer {get_token_confirmed}"}
     response = client.post("api/contacts/", json=contact_data, headers=headers)
     assert response.status_code == 201, response.text
     data = response.json()
@@ -28,12 +25,12 @@ async def test_create_contact(client, get_token):
 
 
 @pytest.mark.asyncio
-async def test_get_contact(client, get_token):
+async def test_get_contact(client, get_token_confirmed):
     """
     Test retrieving a contact by ID.
     """
     contact_data = {**base_contact_data, "email": "get_contact@example.com"}
-    headers = {"Authorization": f"Bearer {get_token}"}
+    headers = {"Authorization": f"Bearer {get_token_confirmed}"}
 
     # Create a contact
     response = client.post("api/contacts/", json=contact_data, headers=headers)
@@ -49,12 +46,12 @@ async def test_get_contact(client, get_token):
 
 
 @pytest.mark.asyncio
-async def test_update_contact(client, get_token):
+async def test_update_contact(client, get_token_confirmed):
     """
     Test updating an existing contact.
     """
     contact_data = {**base_contact_data, "email": "update_contact@example.com"}
-    headers = {"Authorization": f"Bearer {get_token}"}
+    headers = {"Authorization": f"Bearer {get_token_confirmed}"}
 
     # Create a contact
     response = client.post("api/contacts/", json=contact_data, headers=headers)
@@ -79,12 +76,12 @@ async def test_update_contact(client, get_token):
 
 
 @pytest.mark.asyncio
-async def test_delete_contact(client, get_token):
+async def test_delete_contact(client, get_token_confirmed):
     """
     Test deleting a contact.
     """
     contact_data = {**base_contact_data, "email": "delete_contact@example.com"}
-    headers = {"Authorization": f"Bearer {get_token}"}
+    headers = {"Authorization": f"Bearer {get_token_confirmed}"}
 
     # Create a contact
     response = client.post("api/contacts/", json=contact_data, headers=headers)
