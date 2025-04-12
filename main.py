@@ -28,7 +28,11 @@ Entry Point:
 
 app = FastAPI()
 
-origins = ["<http://localhost:8000>", "<http://localhost:8080>"]
+origins = [
+    "<http://localhost:8000>",
+    "<http://localhost:8080>",
+    "<https://contacts-api-2npo.onrender.com>",
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
